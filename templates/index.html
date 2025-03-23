@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tools - Blumas</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <style>
+        body {
+            background-color: #E0F2F1; /* Teal claro */
+        }
+        .container {
+            margin-top: 50px;
+        }
+        .btn-large {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h4 class="center teal-text">Panel de Herramientas</h4>
+
+        <button class="btn-large waves-effect waves-light teal" onclick="ejecutarHoras()">
+            Ejecutar Horas-Server
+        </button>
+
+        <button class="btn-large waves-effect waves-light teal lighten-2 modal-trigger" data-target="modalDescarga">
+            Descargar CSV
+        </button>
+
+        <button class="btn-large waves-effect waves-light teal lighten-3" onclick="mostrarArchivos()">
+            Ver Últimos 10 Archivos
+        </button>
+    </div>
+
+    <!-- Modal para solicitar YYYYMM -->
+    <div id="modalDescarga" class="modal">
+        <div class="modal-content">
+            <h5>Ingresar YYYYMM</h5>
+            <input type="text" id="inputYYYYMM" placeholder="Ejemplo: 202503">
+        </div>
+        <div class="modal-footer">
+            <button class="modal-close waves-effect waves-green btn-flat">Cancelar</button>
+            <button class="waves-effect waves-light btn teal" onclick="descargarCSV()">Descargar</button>
+        </div>
+    </div>
+
+    <!-- Modal para mostrar archivos -->
+    <div id="modalArchivos" class="modal">
+        <div class="modal-content">
+            <h5>Últimos 10 Archivos Generados</h5>
+            <ul id="listaArchivos"></ul>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-close waves-effect waves-green btn-flat">Cerrar</button>
+        </div>
+    </div>
+
+    <!-- Scripts de Materialize y JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            M.Modal.init(document.querySelectorAll('.modal'));
+        });
+
+        function ejecutarHoras() {
+            fetch('/ejecutar-horas', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => M.toast({html: data.message}))
+                .catch(error => M.toast({html: 'Error ejecutando el script'}));
+        }
+
+        function descargarCSV() {
+            let yyyymm = document.getElementById("inputYYYYMM").value;
+            window.location.href = "/descargar-csv/" + yyyymm;
+        }
+
+        function mostrarArchivos() {
+            fetch('/listar-archivos')
+                .then(response => response.json())
+                .then(data => {
+                    let lista = document.getElementById("listaArchivos");
+                    lista.innerHTML = "";
+                    data.archivos.forEach(archivo => {
+                        let li = document.createElement("li");
+                        li.innerHTML = `<a href="/csv_reports/${archivo}" target="_blank">${archivo}</a>`;
+                        lista.appendChild(li);
+                    });
+                    M.Modal.getInstance(document.getElementById("modalArchivos")).open();
+                })
+                .catch(error => M.toast({html: 'Error obteniendo archivos'}));
+        }
+    </script>
+</body>
+</html>

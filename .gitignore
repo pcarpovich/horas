@@ -1,0 +1,14 @@
+# Archivos sensibles
+it-credentials-2025.json
+token.json
+
+# Python
+__pycache__/
+*.pyc
+
+# VSCode
+.vscode/
+
+# Entornos virtuales
+venv/
+.env/

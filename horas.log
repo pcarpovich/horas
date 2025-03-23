@@ -1,0 +1,35 @@
+Archivo disponible en: https://tools.blumas.com.ar/csv_reports/2025-03.csv
+Archivo disponible en: https://tools.blumas.com.ar/csv_reports/2025-02.csv
+Archivos generados y publicados en el servidor: 2025-03.csv, 2025-02.csv
+Archivo disponible en: https://tools.blumas.com.ar/csv_reports/2025-03.csv
+Archivo disponible en: https://tools.blumas.com.ar/csv_reports/2025-02.csv
+Archivos generados y publicados en el servidor: 2025-03.csv, 2025-02.csv
+Archivo disponible en: https://tools.blumas.com.ar/csv_reports/2025-03.csv
+Archivo disponible en: https://tools.blumas.com.ar/csv_reports/2025-02.csv
+Archivos generados y publicados en el servidor: 2025-03.csv, 2025-02.csv
+Archivo disponible en: https://tools.blumas.com.ar/csv_reports/2025-03.csv
+Archivo disponible en: https://tools.blumas.com.ar/csv_reports/2025-02.csv
+Archivos generados y publicados en el servidor: 2025-03.csv, 2025-02.csv
+/home/flaskapp/horas/venv/lib/python3.10/site-packages/oauth2client/_helpers.py:255: UserWarning: Cannot access token.json: No such file or directory
+  warnings.warn(_MISSING_FILE_MESSAGE.format(filename))
+Traceback (most recent call last):
+  File "/home/flaskapp/horas/venv/lib/python3.10/site-packages/oauth2client/clientsecrets.py", line 121, in _loadfile
+    with open(filename, 'r') as fp:
+FileNotFoundError: [Errno 2] No such file or directory: 'it-credentials-2025.json'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/flaskapp/horas/horas-server.py", line 129, in <module>
+    main()
+  File "/home/flaskapp/horas/horas-server.py", line 97, in main
+    flow = client.flow_from_clientsecrets('it-credentials-2025.json', SCOPES)
+  File "/home/flaskapp/horas/venv/lib/python3.10/site-packages/oauth2client/_helpers.py", line 133, in positional_wrapper
+    return wrapped(*args, **kwargs)
+  File "/home/flaskapp/horas/venv/lib/python3.10/site-packages/oauth2client/client.py", line 2134, in flow_from_clientsecrets
+    client_type, client_info = clientsecrets.loadfile(filename,
+  File "/home/flaskapp/horas/venv/lib/python3.10/site-packages/oauth2client/clientsecrets.py", line 165, in loadfile
+    return _loadfile(filename)
+  File "/home/flaskapp/horas/venv/lib/python3.10/site-packages/oauth2client/clientsecrets.py", line 124, in _loadfile
+    raise InvalidClientSecretsError('Error opening file', exc.filename,
+oauth2client.clientsecrets.InvalidClientSecretsError: ('Error opening file', 'it-credentials-2025.json', 'No such file or directory', 2)

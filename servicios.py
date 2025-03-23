@@ -1,21 +1,25 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 import datetime
-import csv
 import os
 from collections import defaultdict
 from googleapiclient.discovery import build
 from httplib2 import Http
 from oauth2client import file, client, tools
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+from reportlab.lib.fonts import addMapping
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 
 # Configuración
 TOKEN_PATH = '/home/flaskapp/horas/token.json'
 CREDENTIALS_PATH = '/home/flaskapp/horas/it-credentials-2025.json'
 SCOPES = 'https://www.googleapis.com/auth/calendar.readonly'
-CSV_DIR = "/var/www/html/csv_reports/"
-ARCHIVO_SALIDA = os.path.join(CSV_DIR, "servicios.csv")
+PDF_SALIDA = "/var/www/html/csv_reports/servicios.pdf"
 
-# Traducción de días
+# Días en español y orden
 DIAS_ES = {
     'Monday': 'Lunes',
     'Tuesday': 'Martes',
@@ -25,15 +29,22 @@ DIAS_ES = {
     'Saturday': 'Sábado',
     'Sunday': 'Domingo'
 }
-
-# Orden lógico de los días
 ORDEN_DIA = {
     'Lunes': 1, 'Martes': 2, 'Miércoles': 3,
     'Jueves': 4, 'Viernes': 5, 'Sábado': 6, 'Domingo': 7
 }
 
+# Fuente PDF
+try:
+    pdfmetrics.registerFont(TTFont('Arial', 'Arial.ttf'))
+    pdfmetrics.registerFont(TTFont('Arial-Bold', 'Arial-Bold.ttf'))
+    addMapping('Arial', 0, 0, 'Arial')
+    addMapping('Arial', 1, 0, 'Arial-Bold')
+    FUENTE = 'Arial'
+except:
+    FUENTE = 'Helvetica'
+
 def calcular_rango_30_dias():
-    """Devuelve el rango de los últimos 30 días desde el domingo siguiente"""
     hoy = datetime.datetime.today()
     dias_hasta_domingo = (6 - hoy.weekday()) % 7
     domingo_siguiente = hoy + datetime.timedelta(days=dias_hasta_domingo)
@@ -41,7 +52,6 @@ def calcular_rango_30_dias():
     return inicio, domingo_siguiente
 
 def obtener_eventos(service, fecha_inicio, fecha_fin):
-    """Obtiene eventos de todos los calendarios Horarios entre las fechas dadas"""
     tMin = fecha_inicio.isoformat() + "Z"
     tMax = fecha_fin.isoformat() + "Z"
     eventos = []
@@ -67,7 +77,7 @@ def obtener_eventos(service, fecha_inicio, fecha_fin):
                             'operario': operario,
                             'servicio': event['summary'],
                             'fecha': start_dt.date(),
-                            'dia': start_dt.strftime("%A"),
+                            'dia_en': start_dt.strftime("%A"),
                             'hora_inicio': start_dt.strftime("%H:%M"),
                             'hora_fin': end_dt.strftime("%H:%M")
                         })
@@ -75,18 +85,14 @@ def obtener_eventos(service, fecha_inicio, fecha_fin):
                         continue
     return eventos
 
-def agrupar_por_servicio_y_semana(eventos):
-    """Filtra por la última semana completa con al menos un evento por servicio-operario"""
+def filtrar_ultima_semana_por_servicio(eventos):
     agrupados = defaultdict(list)
+    for ev in eventos:
+        clave = (ev['servicio'], ev['operario'])
+        agrupados[clave].append(ev)
 
-    for evento in eventos:
-        clave = (evento['servicio'], evento['operario'])
-        agrupados[clave].append(evento)
-
-    resultados_finales = []
-
+    final = []
     for (servicio, operario), lista_eventos in agrupados.items():
-        # Agrupar eventos por semana (Lunes-Domingo)
         semanas = defaultdict(list)
         for ev in lista_eventos:
             lunes = ev['fecha'] - datetime.timedelta(days=ev['fecha'].weekday())
@@ -95,24 +101,55 @@ def agrupar_por_servicio_y_semana(eventos):
         if semanas:
             ultima_semana = max(semanas.keys())
             for ev in semanas[ultima_semana]:
-                resultados_finales.append([
-                    ev['operario'],
-                    ev['servicio'],
-                    DIAS_ES.get(ev['dia'], ev['dia']),
+                final.append([
+                    servicio,
+                    operario,
+                    DIAS_ES.get(ev['dia_en'], ev['dia_en']),
                     ev['hora_inicio'],
                     ev['hora_fin']
                 ])
-    return resultados_finales
+    return final
 
-def guardar_csv(eventos, ruta_archivo):
-    with open(ruta_archivo, 'w+', newline='', encoding='utf-8-sig') as f:
-        writer = csv.writer(f)
-        writer.writerow(['Operario', 'Servicio', 'Día', 'Comienzo', 'Fin'])
-        for fila in eventos:
-            writer.writerow(fila)
+def generar_pdf(datos, ruta_pdf):
+    from reportlab.platypus import Table, TableStyle
+
+    # Ordenar por Servicio, Operario, Día, Comienzo
+    datos_ordenados = sorted(datos, key=lambda x: (
+        x[0],  # Servicio
+        x[1],  # Operario
+        ORDEN_DIA.get(x[2], 99),  # Día
+        x[3]   # Comienzo
+    ))
+
+    data = [['Servicio', 'Operario', 'Día', 'Comienzo', 'Fin']] + datos_ordenados
+
+    estilo_tabla = TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), '#00897b'),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('BACKGROUND', (0, 1), (-1, -1), '#b2dfdb'),
+        ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), f'{FUENTE}-Bold'),
+        ('FONTNAME', (0, 1), (-1, -1), FUENTE),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+    ])
+
+    margen = 20
+    pdf = SimpleDocTemplate(
+        ruta_pdf,
+        pagesize=A4,
+        leftMargin=margen,
+        rightMargin=margen,
+        topMargin=margen,
+        bottomMargin=margen
+    )
+
+    tabla = Table(data, repeatRows=1)
+    tabla.setStyle(estilo_tabla)
+    pdf.build([tabla])
 
 def main():
-    # Autenticación
     store = file.Storage(TOKEN_PATH)
     creds = store.get()
     if not creds or creds.invalid:
@@ -120,31 +157,15 @@ def main():
         creds = tools.run_flow(flow, store)
     service = build('calendar', 'v3', http=creds.authorize(Http()))
 
-    # Calcular rango de fechas
     fecha_inicio, fecha_fin = calcular_rango_30_dias()
-
-    # Obtener eventos
     eventos = obtener_eventos(service, fecha_inicio, fecha_fin)
+    eventos_filtrados = filtrar_ultima_semana_por_servicio(eventos)
+    generar_pdf(eventos_filtrados, PDF_SALIDA)
 
-    # Filtrar última semana útil por servicio
-    eventos_filtrados = agrupar_por_servicio_y_semana(eventos)
-
-    # Ordenar por Operario, Servicio, Día, Comienzo
-    eventos_ordenados = sorted(eventos_filtrados, key=lambda x: (
-        x[0],  # Operario
-        x[1],  # Servicio
-        ORDEN_DIA.get(x[2], 99),  # Día
-        x[3]   # Hora de comienzo
-    ))
-
-    # Guardar CSV
-    guardar_csv(eventos_ordenados, ARCHIVO_SALIDA)
-
-    # Ajustar permisos
     try:
-        os.chown(ARCHIVO_SALIDA, os.getuid(), os.getgid())
-        os.chmod(ARCHIVO_SALIDA, 0o644)
-        print(f"CSV generado exitosamente en: https://tools.blumas.com.ar/csv_reports/servicios.csv")
+        os.chown(PDF_SALIDA, os.getuid(), os.getgid())
+        os.chmod(PDF_SALIDA, 0o644)
+        print(f"PDF generado exitosamente en: https://tools.blumas.com.ar/csv_reports/servicios.pdf")
     except Exception as e:
         print(f"Advertencia al ajustar permisos: {e}")
 
